@@ -21,11 +21,14 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
  */
 public class ShootEmUp extends AdvancedRobot {
 
+    public static ShootEmUp singleton;
+
     private static ShootSetting getSimilarSetting(ShootSetting set) {
         for (Map.Entry<Integer, ShootSetting> entry : settings.entrySet()) {
             Integer bulletHashCode = entry.getKey();
             ShootSetting shootSetting = entry.getValue();
             if (shootSetting.isSimilarTo(set)) {
+                singleton.out.println(shootSetting);
                 return shootSetting;
             }
         }
@@ -71,6 +74,7 @@ public class ShootEmUp extends AdvancedRobot {
 
     @Override
     public void run() {
+        singleton = this;
         try {
             out.println("cSpeed Start: " + ShootEmUp.cSpeed);
             out.println("cGunRotate Start: " + ShootEmUp.cGunRotate);
@@ -206,7 +210,7 @@ public class ShootEmUp extends AdvancedRobot {
         ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
         ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
         if (similarSet != null) {
-            if (similarSet.getHitProbability() < 0.4) {
+            if (similarSet.getHitProbability() < 0.3) {
                 onScannedRobot(event);
                 return;
             }
@@ -220,10 +224,12 @@ public class ShootEmUp extends AdvancedRobot {
 
         Bullet b = this.setFireBullet(f);
         set.bullet = b;
-        if (similarSet == null) {
-            ShootEmUp.settings.put(b.hashCode(), set);
-        } else {
-            ShootEmUp.settings.put(b.hashCode(), similarSet);
+        if (b != null) {
+            if (similarSet == null) {
+                ShootEmUp.settings.put(b.hashCode(), set);
+            } else {
+                ShootEmUp.settings.put(b.hashCode(), similarSet);
+            }
         }
         execute();
         this.tickRobotScanned = (int) this.getTime();
@@ -279,7 +285,7 @@ class ShootSetting {
     }
 
     public double getHitProbability() {
-        if ((this.hitCount + this.missCount) < 10) {
+        if ((this.hitCount + this.missCount) < 5) {
             return 1;
         }
         return (this.hitCount / (this.hitCount + this.missCount));
@@ -287,9 +293,9 @@ class ShootSetting {
 
     public boolean isSimilarTo(ShootSetting settingToCompare) {
         if (this.firePower == settingToCompare.firePower) {
-            if (this.opponentBearing * 0.8 < settingToCompare.opponentBearing && this.opponentBearing * 1.2 > settingToCompare.opponentBearing) {
-                if (this.opponentDistance * 0.8 < settingToCompare.opponentDistance && this.opponentDistance * 1.2 > settingToCompare.opponentDistance) {
-                    if (this.turnGunBeforeFire * 0.8 < settingToCompare.turnGunBeforeFire && this.turnGunBeforeFire * 1.2 > settingToCompare.turnGunBeforeFire) {
+            if (this.opponentBearing * 0.4 < settingToCompare.opponentBearing && this.opponentBearing * 1.6 > settingToCompare.opponentBearing) {
+                if (this.opponentDistance * 0.4 < settingToCompare.opponentDistance && this.opponentDistance * 1.6 > settingToCompare.opponentDistance) {
+                    if (this.turnGunBeforeFire * 0.4 < settingToCompare.turnGunBeforeFire && this.turnGunBeforeFire * 1.6 > settingToCompare.turnGunBeforeFire) {
                         return true;
                     }
                 }
