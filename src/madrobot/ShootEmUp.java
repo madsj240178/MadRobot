@@ -5,8 +5,13 @@
 package madrobot;
 
 import java.awt.Color;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import robocode.*;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
@@ -26,6 +31,28 @@ public class ShootEmUp extends AdvancedRobot {
         }
         return null;
     }
+
+    private void writeShootSettingsToFile() {
+        String output = "------------ Runde " + this.getRoundNum() + " ------------\n";
+        for (Map.Entry<Integer, ShootSetting> entry : settings.entrySet()) {
+            Integer integer = entry.getKey();
+            ShootSetting shootSetting = entry.getValue();
+            output += shootSetting.toString();
+        }
+
+        File f = this.getDataFile("shootsettings" + getRoundNum() + ".txt");
+        RobocodeFileOutputStream fos;
+        try {
+            fos = new RobocodeFileOutputStream(f);
+            fos.write(output.getBytes());
+            fos.flush();
+            fos.close();
+        } catch (Exception ex) {
+            Logger.getLogger(ShootEmUp.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+
+    }
     double battleFieldWidth = 1500;
     double battleFieldHeight = 1500;
     double opponentDistance = 1500;
@@ -38,57 +65,55 @@ public class ShootEmUp extends AdvancedRobot {
     double previousX = 0;
     double previousY = 0;
     int missedBulletsinARow = 0;
-    static int cSpeed = 40;
+    static int cSpeed = 80;
     static int cGunRotate = 0;
     static Hashtable<Integer, ShootSetting> settings = new Hashtable<Integer, ShootSetting>();
 
     @Override
     public void run() {
         try {
-        out.println("cSpeed Start: " + ShootEmUp.cSpeed);
-        out.println("cGunRotate Start: " + ShootEmUp.cGunRotate);
-        this.setBodyColor(Color.RED);
-        this.setScanColor(Color.yellow);
-        this.setRadarColor(Color.BLACK);
-        this.setGunColor(Color.RED);
-        this.battleFieldWidth = getBattleFieldWidth();
-        this.battleFieldHeight = getBattleFieldHeight();
-        while (true) {
-            this.speed = ShootEmUp.cSpeed * Math.random();
-            double x = this.getX();
-            double y = this.getY();
-            this.setMaxVelocity(5);
+            out.println("cSpeed Start: " + ShootEmUp.cSpeed);
+            out.println("cGunRotate Start: " + ShootEmUp.cGunRotate);
+            this.setBodyColor(Color.RED);
+            this.setScanColor(Color.yellow);
+            this.setRadarColor(Color.BLACK);
+            this.setGunColor(Color.RED);
+            this.battleFieldWidth = getBattleFieldWidth();
+            this.battleFieldHeight = getBattleFieldHeight();
+            while (true) {
+                this.speed = ShootEmUp.cSpeed * Math.random();
+                double x = this.getX();
+                double y = this.getY();
+                this.setMaxVelocity(5);
 
-            double r = 80 + Math.random() * 20;
-            if (isGettingCloseToBorder()) {
+                double r = 80 + Math.random() * 20;
+                if (isGettingCloseToBorder()) {
 
-                this.setTurnRight(r);
-                this.setAhead(this.speed);
-                execute();
-            } else {
-                r = 0;
-                this.setAhead(this.speed);
-                if (Math.random() > 0.9) {
-                    r = 20;
-                } else if (Math.random() > 0.8) {
-                    r += -40;
-                }
-                this.setTurnRight(r);
-                if (this.tickRobotScanned < (getTime() - 30)) {
-                    this.setAdjustGunForRobotTurn(true);
-                    this.setTurnGunLeft(170);
+                    this.setTurnRight(r);
+                    this.setAhead(this.speed);
                     execute();
-                    this.setAdjustGunForRobotTurn(true);
+                } else {
+                    r = 0;
+                    this.setAhead(this.speed);
+                    if (Math.random() > 0.9) {
+                        r = 20;
+                    } else if (Math.random() > 0.8) {
+                        r += -40;
+                    }
+                    this.setTurnRight(r);
+                    if (this.tickRobotScanned < (getTime() - 30)) {
+                        this.setAdjustGunForRobotTurn(true);
+                        this.setTurnGunLeft(170);
+                        execute();
+                        this.setAdjustGunForRobotTurn(true);
 
-                    //this.speed = 100;
-                    //turnRadarRight(20);
+                        //this.speed = 100;
+                        //turnRadarRight(20);
+                    }
                 }
+                execute();
             }
-            execute();
-        }
-        }
-        catch(Exception e)
-        {
+        } catch (Exception e) {
             out.println(e.getMessage());
         }
     }
@@ -149,14 +174,14 @@ public class ShootEmUp extends AdvancedRobot {
         ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
         out.println("missedBulletsinARow: " + this.missedBulletsinARow);
 
-        if (this.missedBulletsinARow > 10) {
+        if (this.missedBulletsinARow > 20) {
             // Setting
             this.missedBulletsinARow = 0;
             if (Math.random() >= 0.5) {
-                ShootEmUp.cSpeed = (int) Math.round(20 * Math.random());
+                ShootEmUp.cSpeed = (int) Math.round(80 * Math.random());
                 ShootEmUp.cGunRotate = (int) Math.round(10 * Math.random()) - ShootEmUp.cGunRotate;
             } else {
-                ShootEmUp.cSpeed = (int) Math.round(10 * Math.random());
+                ShootEmUp.cSpeed = (int) Math.round(40 * Math.random());
                 ShootEmUp.cGunRotate = (int) ((-1) * Math.round(10 * Math.random())) - ShootEmUp.cGunRotate;
             }
 
@@ -172,37 +197,41 @@ public class ShootEmUp extends AdvancedRobot {
         this.opponentHeading = event.getHeading();
 
         double f = Math.round(Rules.MAX_BULLET_POWER * Math.random());
-        
+
         int m1 = 1;
         if (Math.random() >= 0.5) {
             m1 = -1;
         }
-        
+
         ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
         ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
-        if(similarSet != null) {
-            if(similarSet.getHitProbability() < 0.4) {
+        if (similarSet != null) {
+            if (similarSet.getHitProbability() < 0.4) {
                 onScannedRobot(event);
                 return;
             }
         }
-        
+
         this.setAdjustGunForRobotTurn(true);
         this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
         execute();
         this.setAdjustGunForRobotTurn(false);
 
-        
+
         Bullet b = this.setFireBullet(f);
         set.bullet = b;
-        if(similarSet == null) {
+        if (similarSet == null) {
             ShootEmUp.settings.put(b.hashCode(), set);
-        }
-        else {
+        } else {
             ShootEmUp.settings.put(b.hashCode(), similarSet);
         }
         execute();
         this.tickRobotScanned = (int) this.getTime();
+    }
+
+    @Override
+    public void onRoundEnded(RoundEndedEvent event) {
+        writeShootSettingsToFile();
     }
 
     @Override
@@ -236,7 +265,7 @@ class ShootSetting {
     public ShootSetting(Bullet bullet, double opponentBearing, double opponentDistance, double turnGunBeforeFire, double firePower) {
         this.bullet = bullet;
         this.opponentDistance = opponentDistance;
-        this.opponentBearing = opponentDistance;
+        this.opponentBearing = opponentBearing;
         this.turnGunBeforeFire = turnGunBeforeFire;
         this.firePower = firePower;
     }
@@ -250,20 +279,27 @@ class ShootSetting {
     }
 
     public double getHitProbability() {
-        if((this.hitCount + this.missCount) < 10) return 1;
+        if ((this.hitCount + this.missCount) < 10) {
+            return 1;
+        }
         return (this.hitCount / (this.hitCount + this.missCount));
     }
 
     public boolean isSimilarTo(ShootSetting settingToCompare) {
         if (this.firePower == settingToCompare.firePower) {
-            if (this.opponentBearing * 0.9 < settingToCompare.opponentBearing && this.opponentBearing * 1.1 > settingToCompare.opponentBearing) {
-                if (this.opponentDistance * 0.9 < settingToCompare.opponentDistance && this.opponentDistance * 1.1 > settingToCompare.opponentDistance) {
-                    if (this.turnGunBeforeFire * 0.9 < settingToCompare.turnGunBeforeFire && this.turnGunBeforeFire * 1.1 > settingToCompare.turnGunBeforeFire) {
+            if (this.opponentBearing * 0.8 < settingToCompare.opponentBearing && this.opponentBearing * 1.2 > settingToCompare.opponentBearing) {
+                if (this.opponentDistance * 0.8 < settingToCompare.opponentDistance && this.opponentDistance * 1.2 > settingToCompare.opponentDistance) {
+                    if (this.turnGunBeforeFire * 0.8 < settingToCompare.turnGunBeforeFire && this.turnGunBeforeFire * 1.2 > settingToCompare.turnGunBeforeFire) {
                         return true;
                     }
                 }
             }
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "ShootSetting{" + this.getHitProbability() + " shootAmount" + (this.hitCount + this.missCount) + "}\n";
     }
 }
