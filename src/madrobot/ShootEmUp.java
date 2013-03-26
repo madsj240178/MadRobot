@@ -88,15 +88,16 @@ public class ShootEmUp extends AdvancedRobot {
                 this.speed = ShootEmUp.cSpeed * Math.random();
                 double x = this.getX();
                 double y = this.getY();
-                this.setMaxVelocity(5);
+                this.setMaxVelocity(8);
 
                 double r = 80 + Math.random() * 20;
                 if (isGettingCloseToBorder()) {
-
+                    this.setMaxVelocity(5);
                     this.setTurnRight(r);
                     this.setAhead(this.speed);
                     execute();
                 } else {
+                    this.setMaxVelocity(8);
                     r = 0;
                     this.setAhead(this.speed);
                     if (Math.random() > 0.9) {
@@ -182,11 +183,11 @@ public class ShootEmUp extends AdvancedRobot {
             // Setting
             this.missedBulletsinARow = 0;
             if (Math.random() >= 0.5) {
-                ShootEmUp.cSpeed = (int) Math.round(80 * Math.random());
-                ShootEmUp.cGunRotate = (int) Math.round(10 * Math.random()) - ShootEmUp.cGunRotate;
+                //ShootEmUp.cSpeed = (int) Math.round(80 * Math.random());
+                //ShootEmUp.cGunRotate = (int) Math.round(10 * Math.random()) - ShootEmUp.cGunRotate;
             } else {
-                ShootEmUp.cSpeed = (int) Math.round(40 * Math.random());
-                ShootEmUp.cGunRotate = (int) ((-1) * Math.round(10 * Math.random())) - ShootEmUp.cGunRotate;
+                //ShootEmUp.cSpeed = (int) Math.round(40 * Math.random());
+                //ShootEmUp.cGunRotate = (int) ((-1) * Math.round(10 * Math.random())) - ShootEmUp.cGunRotate;
             }
 
         }
@@ -237,7 +238,7 @@ public class ShootEmUp extends AdvancedRobot {
 
     @Override
     public void onRoundEnded(RoundEndedEvent event) {
-        writeShootSettingsToFile();
+        //writeShootSettingsToFile();
     }
 
     @Override
