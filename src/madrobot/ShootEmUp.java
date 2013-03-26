@@ -5,7 +5,6 @@
 package madrobot;
 
 import java.awt.Color;
-import java.awt.Point;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -16,7 +15,6 @@ import java.util.logging.Logger;
 import robocode.*;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
-
 /**
  *
  * @author sjaeger
@@ -24,7 +22,6 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
 public class ShootEmUp extends AdvancedRobot {
 
     public static ShootEmUp singleton;
-    public static OpponentSettings opponentSettings;
 
     private static ShootSetting getSimilarSetting(ShootSetting set) {
         for (Map.Entry<Integer, ShootSetting> entry : settings.entrySet()) {
@@ -36,10 +33,6 @@ public class ShootEmUp extends AdvancedRobot {
             }
         }
         return null;
-    }
-
-    private static boolean isOpponentPredictable(String opponentName) {
-        return false;
     }
 
     private void writeShootSettingsToFile() {
@@ -63,6 +56,21 @@ public class ShootEmUp extends AdvancedRobot {
 
 
     }
+    double battleFieldWidth = 1500;
+    double battleFieldHeight = 1500;
+    double opponentDistance = 1500;
+    double opponentBearing = 0;
+    double opponentVelocity = 10;
+    double opponentEnergy = 100;
+    double opponentHeading;
+    double speed = 20;
+    int tickRobotScanned = 0;
+    double previousX = 0;
+    double previousY = 0;
+    int missedBulletsinARow = 0;
+    static int cSpeed = 80;
+    static int cGunRotate = 0;
+    static Hashtable<Integer, ShootSetting> settings = new Hashtable<Integer, ShootSetting>();
 
     @Override
     public void run() {
@@ -167,7 +175,7 @@ public class ShootEmUp extends AdvancedRobot {
     @Override
     public void onBulletMissed(BulletMissedEvent event) {
         this.missedBulletsinARow++;
-        if(ShootEmUp.settings.get(event.getBullet().hashCode()) != null) ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
+        ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
         out.println("missedBulletsinARow: " + this.missedBulletsinARow);
 
         if (this.missedBulletsinARow > 20) {
@@ -183,45 +191,6 @@ public class ShootEmUp extends AdvancedRobot {
 
         }
     }
-    
-    private Point getOpponentPostion() {
-        Point p = new Point();
-        double beta = 90 - this.opponentHeading;
-        double a = this.opponentDistance * Math.cos(beta);
-        double b;
-        double o = this.opponentDistance;
-        b = Math.sqrt((o*o) - (a*a));
-        p.x = (int) Math.round(a + this.getX());
-        p.y = (int) Math.round(b + this.getX());
-        out.println("beta: " + beta);
-        out.println("a: " + a);
-        out.println("b: " + b);
-        out.println("o: " + o);
-        out.println("Opponent Pos: " + p);
-        out.println("Opponent Heading: " + this.opponentHeading);
-        return p;
-    }
-    
-    private ShootSetting getCalculatedShootSetting(String opponentName)
-    {
-        double beta = 90 - this.opponentBearing ;
-        Point opponentPostion = getOpponentPostion();
-        int roundsForCalc = (int) Math.round(this.opponentDistance / 15);
-        double opponentDistanceDriving = this.opponentDistance + roundsForCalc * this.opponentVelocity;
-        double a = opponentDistanceDriving * Math.cos(beta);
-        double b = Math.sqrt(opponentDistanceDriving*opponentDistanceDriving - a*a);
-        double xInFuture = a + opponentPostion.x;
-        double yInFuture = a + opponentPostion.y;
-        
-        a = Math.abs(xInFuture - getX());
-        b = Math.abs(yInFuture - getY());
-        double c = Math.sqrt(Math.pow(a,2) + Math.pow(b,2));
-        double velocity = c / roundsForCalc;
-        double power = (20 - velocity) / 3;
-        double turnGunBeforeFire = 360 - 90 - (90 - this.opponentBearing) - this.getGunHeading() + (this.getHeading() - this.getGunHeading());
-        ShootSetting s = new ShootSetting(null, this.opponentBearing, this.opponentDistance, turnGunBeforeFire, power);
-        return s;
-    }
 
     @Override
     public void onScannedRobot(ScannedRobotEvent event) {
@@ -231,41 +200,38 @@ public class ShootEmUp extends AdvancedRobot {
         this.opponentBearing = event.getBearing();
         this.opponentHeading = event.getHeading();
 
-        if (true || isOpponentPredictable(event.getName())) {
-            ShootSetting s = getCalculatedShootSetting(event.getName());
-            this.setTurnGunLeft(normalRelativeAngleDegrees(s.turnGunBeforeFire));
-            waitFor(new GunTurnCompleteCondition(this));
-            this.setFire(s.firePower);
-            execute();
-            out.println("turnGun: " + s.turnGunBeforeFire);
-            out.println("GunHeading: " + getGunHeading());
-            out.println("Heading: " + getHeading());
-            out.println("Bearing: " + opponentBearing);
-            
-        } else {
-            double f = Math.round(Rules.MAX_BULLET_POWER * Math.random());
+        double f = Math.round(Rules.MAX_BULLET_POWER * Math.random());
 
-            int m1 = 1;
-            if (Math.random() >= 0.5) {
-                m1 = -1;
-            }
-
-            ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
-            ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
-            if (similarSet != null) {
-                if (similarSet.getHitProbability() < 0.3) {
-                    onScannedRobot(event);
-                    return;
-                }
-            }
-
-            this.setAdjustGunForRobotTurn(true);
-            this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
-            execute();
-            this.setAdjustGunForRobotTurn(false);
-            setFireBullet(f, set, similarSet);
-            execute();
+        int m1 = 1;
+        if (Math.random() >= 0.5) {
+            m1 = -1;
         }
+
+        ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
+        ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
+        if (similarSet != null) {
+            if (similarSet.getHitProbability() < 0.3) {
+                onScannedRobot(event);
+                return;
+            }
+        }
+
+        this.setAdjustGunForRobotTurn(true);
+        this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
+        execute();
+        this.setAdjustGunForRobotTurn(false);
+
+
+        Bullet b = this.setFireBullet(f);
+        set.bullet = b;
+        if (b != null) {
+            if (similarSet == null) {
+                ShootEmUp.settings.put(b.hashCode(), set);
+            } else {
+                ShootEmUp.settings.put(b.hashCode(), similarSet);
+            }
+        }
+        execute();
         this.tickRobotScanned = (int) this.getTime();
     }
 
@@ -290,34 +256,8 @@ public class ShootEmUp extends AdvancedRobot {
             this.turnGunRight(360);
         }
     }
-    double battleFieldWidth = 1500;
-    double battleFieldHeight = 1500;
-    double opponentDistance = 1500;
-    double opponentBearing = 0;
-    double opponentVelocity = 10;
-    double opponentEnergy = 100;
-    double opponentHeading;
-    double speed = 20;
-    int tickRobotScanned = 0;
-    double previousX = 0;
-    double previousY = 0;
-    int missedBulletsinARow = 0;
-    static int cSpeed = 80;
-    static int cGunRotate = 0;
-    static Hashtable<Integer, ShootSetting> settings = new Hashtable<Integer, ShootSetting>();
-
-    private void setFireBullet(double f, ShootSetting set, ShootSetting similarSet) {
-        Bullet b = this.setFireBullet(f);
-        set.bullet = b;
-        if (b != null) {
-            if (similarSet == null) {
-                ShootEmUp.settings.put(b.hashCode(), set);
-            } else {
-                ShootEmUp.settings.put(b.hashCode(), similarSet);
-            }
-        }
-    }
 }
+
 class ShootSetting {
 
     public Bullet bullet;
