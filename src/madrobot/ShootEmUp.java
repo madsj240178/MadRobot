@@ -5,11 +5,15 @@
 package madrobot;
 
 import java.awt.Color;
+import java.awt.Point;
+import java.awt.geom.Point2D;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import robocode.*;
@@ -22,6 +26,7 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
 public class ShootEmUp extends AdvancedRobot {
 
     public static ShootEmUp singleton;
+    public static OpponentSettings opponentSettings = new OpponentSettings();
 
     private static ShootSetting getSimilarSetting(ShootSetting set) {
         for (Map.Entry<Integer, ShootSetting> entry : settings.entrySet()) {
@@ -70,6 +75,7 @@ public class ShootEmUp extends AdvancedRobot {
     int missedBulletsinARow = 0;
     static int cSpeed = 80;
     static int cGunRotate = 0;
+    private boolean isOpponentWallRobot = false;
     static Hashtable<Integer, ShootSetting> settings = new Hashtable<Integer, ShootSetting>();
 
     @Override
@@ -85,38 +91,47 @@ public class ShootEmUp extends AdvancedRobot {
             this.battleFieldWidth = getBattleFieldWidth();
             this.battleFieldHeight = getBattleFieldHeight();
             while (true) {
-                this.speed = ShootEmUp.cSpeed * Math.random();
-                double x = this.getX();
-                double y = this.getY();
-                this.setMaxVelocity(8);
-
-                double r = 80 + Math.random() * 20;
-                if (isGettingCloseToBorder()) {
-                    this.setMaxVelocity(5);
-                    this.setTurnRight(r);
-                    this.setAhead(this.speed);
+                if (isOpponentWallRobot) {
+                    Bullet b = setFireBullet(Rules.MAX_BULLET_POWER);
                     execute();
+                    setAhead(-getBattleFieldHeight() + getY() + 30);
+                    waitFor(new MoveCompleteCondition(this));
+
                 } else {
+                    this.speed = ShootEmUp.cSpeed * Math.random();
+                    double x = this.getX();
+                    double y = this.getY();
                     this.setMaxVelocity(8);
-                    r = 0;
-                    this.setAhead(this.speed);
-                    if (Math.random() > 0.9) {
-                        r = 20;
-                    } else if (Math.random() > 0.8) {
-                        r += -40;
-                    }
-                    this.setTurnRight(r);
-                    if (this.tickRobotScanned < (getTime() - 30)) {
+
+                    double r = 80 + Math.random() * 20;
+                    if (isGettingCloseToBorder()) {
+                        this.setMaxVelocity(5);
+                        this.setTurnRight(r);
+                        this.setAhead(this.speed);
+                        execute();
+                    } else {
+                        this.setMaxVelocity(8);
+                        r = 0;
+                        this.setAhead(this.speed);
+                        if (Math.random() > 0.9) {
+                            r = 20;
+                        } else if (Math.random() > 0.8) {
+                            r += -40;
+                        }
+                        this.setTurnRight(r);
+                        double turnGun = 0;
+                        if (this.tickRobotScanned < (getTime() - 40)) {
+                            turnGun = 170;
+                        } else {
+                            turnGun = normalRelativeAngleDegrees(opponentBearing);
+                        }
                         this.setAdjustGunForRobotTurn(true);
-                        this.setTurnGunLeft(170);
+                        this.setTurnGunLeft(turnGun);
                         execute();
                         this.setAdjustGunForRobotTurn(true);
-
-                        //this.speed = 100;
-                        //turnRadarRight(20);
                     }
+                    execute();
                 }
-                execute();
             }
         } catch (Exception e) {
             out.println(e.getMessage());
@@ -155,14 +170,16 @@ public class ShootEmUp extends AdvancedRobot {
 
     @Override
     public void onHitByBullet(HitByBulletEvent event) {
-        double bearingBullet = event.getBearing();
-        this.setTurnGunRight(normalRelativeAngleDegrees(bearingBullet));
+        if (!isOpponentWallRobot) {
+            double bearingBullet = event.getBearing();
+            this.setTurnGunRight(normalRelativeAngleDegrees(bearingBullet));
+        }
     }
 
     @Override
     public void onBulletHit(BulletHitEvent event) {
         this.missedBulletsinARow = 0;
-        ShootEmUp.settings.get(event.getBullet().hashCode()).increaseHit();
+        if (event.getBullet() != null) ShootEmUp.settings.get(event.getBullet().hashCode()).increaseHit();
     }
 
     @Override
@@ -176,7 +193,7 @@ public class ShootEmUp extends AdvancedRobot {
     @Override
     public void onBulletMissed(BulletMissedEvent event) {
         this.missedBulletsinARow++;
-        ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
+        if (event.getBullet() != null) ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
         out.println("missedBulletsinARow: " + this.missedBulletsinARow);
 
         if (this.missedBulletsinARow > 20) {
@@ -184,12 +201,34 @@ public class ShootEmUp extends AdvancedRobot {
             this.missedBulletsinARow = 0;
             if (Math.random() >= 0.5) {
                 //ShootEmUp.cSpeed = (int) Math.round(80 * Math.random());
-                //ShootEmUp.cGunRotate = (int) Math.round(10 * Math.random()) - ShootEmUp.cGunRotate;
+                //ShootEmUp.cGunRotate = (int) Math.round(5*Math.random()) - ShootEmUp.cGunRotate;
             } else {
                 //ShootEmUp.cSpeed = (int) Math.round(40 * Math.random());
-                //ShootEmUp.cGunRotate = (int) ((-1) * Math.round(10 * Math.random())) - ShootEmUp.cGunRotate;
+                //ShootEmUp.cGunRotate = (int) ((-1) * Math.round(5*Math.random())) - ShootEmUp.cGunRotate;
             }
 
+        }
+    }
+
+    private Point2D.Double getOpponentPostion() {
+        Point2D.Double p = new Point2D.Double();
+        double angle = Math.toRadians((getHeading() + opponentBearing) % 360);
+
+        // Calculate the coordinates of the robot
+        double x = (getX() + Math.sin(angle) * opponentDistance);
+        double y = (getY() + Math.cos(angle) * opponentDistance);
+        p.setLocation(x, y);
+        return p;
+    }
+
+    private static ScannedRobotEvent currentEvent = null;
+
+    private static boolean isStillCurrentScan(ScannedRobotEvent event) {
+        if (ShootEmUp.currentEvent == null || ShootEmUp.currentEvent.hashCode() == event.hashCode()) {
+            return true;
+        } else {
+            ShootEmUp.currentEvent = event;
+            return false;
         }
     }
 
@@ -200,45 +239,100 @@ public class ShootEmUp extends AdvancedRobot {
         this.opponentEnergy = event.getEnergy();
         this.opponentBearing = event.getBearing();
         this.opponentHeading = event.getHeading();
-
-        double f = Math.round(Rules.MAX_BULLET_POWER * Math.random());
-
-        int m1 = 1;
-        if (Math.random() >= 0.5) {
-            m1 = -1;
-        }
-
-        ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
-        ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
-        if (similarSet != null) {
-            if (similarSet.getHitProbability() < 0.3) {
-                onScannedRobot(event);
-                return;
-            }
-        }
-
-        this.setAdjustGunForRobotTurn(true);
-        this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
-        execute();
-        this.setAdjustGunForRobotTurn(false);
-
-
-        Bullet b = this.setFireBullet(f);
-        set.bullet = b;
-        if (b != null) {
-            if (similarSet == null) {
-                ShootEmUp.settings.put(b.hashCode(), set);
-            } else {
-                ShootEmUp.settings.put(b.hashCode(), similarSet);
-            }
-        }
-        execute();
         this.tickRobotScanned = (int) this.getTime();
+
+        Point2D.Double opponentPosition = getOpponentPostion();
+        OpponentSetting oSetting = new OpponentSetting(event.getName(), opponentHeading, opponentVelocity, opponentPosition);
+        ShootEmUp.opponentSettings.add(oSetting);
+        if(getOthers() == 1 && this.isOpponentWallRobot) {
+            return;
+        }
+        if (getOthers() == 1 && isWallRobot(event.getName())) {
+            this.setAdjustGunForRobotTurn(true);
+            
+            this.isOpponentWallRobot = true;
+            setTurnRight(normalRelativeAngleDegrees(90 - getHeading()));
+            waitFor(new TurnCompleteCondition(this));
+            setAhead(getBattleFieldWidth() - getX() - 16);
+            waitFor(new MoveCompleteCondition(this));
+            setTurnGunRight(normalRelativeAngleDegrees(360 - getGunHeading()));
+            waitFor(new GunTurnCompleteCondition(this));
+            setTurnRight(normalRelativeAngleDegrees(360 - getHeading()));
+            waitFor(new TurnCompleteCondition(this));
+            this.setAdjustGunForRobotTurn(false);
+            
+            return;
+        } else {
+            this.isOpponentWallRobot = false;
+            double f = Math.round(Rules.MAX_BULLET_POWER * Math.random());
+
+            int m1 = 1;
+            if (Math.random() >= 0.5) {
+                m1 = -1;
+            }
+
+            ShootSetting set = new ShootSetting(null, opponentBearing, opponentDistance, (m1 * ShootEmUp.cGunRotate), f);
+            ShootSetting similarSet = ShootEmUp.getSimilarSetting(set);
+            if (similarSet != null) {
+                if (similarSet.getHitProbability() < 0.1) {
+                    onScannedRobot(event);
+                    return;
+                }
+            }
+
+            this.setAdjustGunForRobotTurn(true);
+            this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
+            execute();
+            this.setAdjustGunForRobotTurn(false);
+
+
+            if (getEnergy() > 5) {
+                Bullet b = this.setFireBullet(f);
+                set.bullet = b;
+                if (b != null) {
+                    if (similarSet == null) {
+                        ShootEmUp.settings.put(b.hashCode(), set);
+                    } else {
+                        ShootEmUp.settings.put(b.hashCode(), similarSet);
+                    }
+                }
+            }
+            execute();
+        }
+    }
+
+    private boolean isWallRobot(String opponentName) {
+        Vector<OpponentSetting> v = ShootEmUp.opponentSettings.getSettingsByName(opponentName);
+        out.println("isWallRobot:" + v.toArray().toString());
+        int i = 0;
+        int calcSeemsToBe = 0;
+        if (v != null) {
+            for (Iterator<OpponentSetting> it = v.iterator(); it.hasNext();) {
+                OpponentSetting opponentSetting = it.next();
+                i++;
+                if (v.size() - 10 > i) {
+                    continue;
+                }
+                Point2D.Double p = opponentSetting.getOpponentPosition();
+                if (p.getX() < 36 || p.getX() > getBattleFieldWidth() - 36) {
+                    out.println(p);
+                    calcSeemsToBe++;
+                } else if (p.getY() < 36 || p.getY() > getBattleFieldHeight() - 36) {
+                    calcSeemsToBe++;
+                    out.println(p);
+                }
+            }
+        }
+        if (calcSeemsToBe > 8) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Override
     public void onRoundEnded(RoundEndedEvent event) {
-        //writeShootSettingsToFile();
+        writeShootSettingsToFile();
     }
 
     @Override
