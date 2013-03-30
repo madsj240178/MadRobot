@@ -14,6 +14,16 @@ public class OpponentSetting {
     private String opponentName;
     private double opponentHeading;
     private Point2D.Double opponentPosition;
+    private long turnNum;
+
+    public long getTurnNum() {
+        return turnNum;
+    }
+
+    public void setTurnNum(long turnNum) {
+        this.turnNum = turnNum;
+    }
+
 
     public Point2D.Double getOpponentPosition() {
         return opponentPosition;
@@ -39,11 +49,12 @@ public class OpponentSetting {
         this.opponentHeading = opponentHeading;
     }
 
-    public OpponentSetting(String opponentName, double opponentHeading, double opponentVelocity, Point2D.Double opponentPosition) {
+    public OpponentSetting(String opponentName, double opponentHeading, double opponentVelocity, Point2D.Double opponentPosition, long turnNum) {
         this.opponentName = opponentName;
         this.opponentHeading = opponentHeading;
         this.opponentVelocity = opponentVelocity;
         this.opponentPosition = opponentPosition;
+        this.turnNum = turnNum;
     }
 
     public double getOpponentVelocity() {

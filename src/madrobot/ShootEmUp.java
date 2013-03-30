@@ -17,6 +17,7 @@ import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import robocode.*;
+import robocode.util.Utils;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 /**
@@ -33,7 +34,6 @@ public class ShootEmUp extends AdvancedRobot {
             Integer bulletHashCode = entry.getKey();
             ShootSetting shootSetting = entry.getValue();
             if (shootSetting.isSimilarTo(set)) {
-                singleton.out.println(shootSetting);
                 return shootSetting;
             }
         }
@@ -81,9 +81,9 @@ public class ShootEmUp extends AdvancedRobot {
     @Override
     public void run() {
         singleton = this;
+        setAdjustRadarForGunTurn(true);
+        this.setAdjustGunForRobotTurn(true);
         try {
-            out.println("cSpeed Start: " + ShootEmUp.cSpeed);
-            out.println("cGunRotate Start: " + ShootEmUp.cGunRotate);
             this.setBodyColor(Color.RED);
             this.setScanColor(Color.yellow);
             this.setRadarColor(Color.BLACK);
@@ -119,16 +119,16 @@ public class ShootEmUp extends AdvancedRobot {
                             r += -40;
                         }
                         this.setTurnRight(r);
-                        double turnGun = 0;
-                        if (this.tickRobotScanned < (getTime() - 40)) {
-                            turnGun = 170;
+                        double turnRadar = 0;
+                        if (this.tickRobotScanned < (getTime() - 6)) {
+                            turnRadar = 45;
                         } else {
-                            turnGun = normalRelativeAngleDegrees(opponentBearing);
+                            turnRadar = normalRelativeAngleDegrees(normalRelativeAngleDegrees(opponentBearing + 10));
                         }
-                        this.setAdjustGunForRobotTurn(true);
-                        this.setTurnGunLeft(turnGun);
+                        this.setTurnRadarLeft(turnRadar);
                         execute();
-                        this.setAdjustGunForRobotTurn(true);
+                        this.setTurnRadarRight(2*turnRadar);
+                        execute();
                     }
                     execute();
                 }
@@ -145,14 +145,14 @@ public class ShootEmUp extends AdvancedRobot {
         double leftXDistance = getX();
         double rightYDistance = this.battleFieldHeight - getY();
         double leftYDistance = getY();
-        if (Math.min(rightXDistance, leftXDistance) > 100) {
+        if (Math.min(rightXDistance, leftXDistance) > 150) {
             isFarAwayFromXBorder = true;
         } else {
             if (this.previousX < Math.min(rightXDistance, leftXDistance)) {
                 isFarAwayFromXBorder = true;
             }
         }
-        if (Math.min(rightYDistance, leftYDistance) > 100) {
+        if (Math.min(rightYDistance, leftYDistance) > 150) {
             isFarAwayFromYBorder = true;
         } else {
             if (this.previousY < Math.min(rightYDistance, leftYDistance)) {
@@ -179,7 +179,9 @@ public class ShootEmUp extends AdvancedRobot {
     @Override
     public void onBulletHit(BulletHitEvent event) {
         this.missedBulletsinARow = 0;
-        if (event.getBullet() != null) ShootEmUp.settings.get(event.getBullet().hashCode()).increaseHit();
+        if (event.getBullet() != null) {
+            ShootEmUp.settings.get(event.getBullet().hashCode()).increaseHit();
+        }
     }
 
     @Override
@@ -193,9 +195,10 @@ public class ShootEmUp extends AdvancedRobot {
     @Override
     public void onBulletMissed(BulletMissedEvent event) {
         this.missedBulletsinARow++;
-        if (event.getBullet() != null) ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
-        out.println("missedBulletsinARow: " + this.missedBulletsinARow);
-
+        if (event.getBullet() != null) {
+            ShootEmUp.settings.get(event.getBullet().hashCode()).increaseMiss();
+        }
+        
         if (this.missedBulletsinARow > 20) {
             // Setting
             this.missedBulletsinARow = 0;
@@ -210,6 +213,40 @@ public class ShootEmUp extends AdvancedRobot {
         }
     }
 
+    public static final int QUADRANT_UPPER_RIGHT = 1;
+    public static final int QUADRANT_LOWER_RIGHT = 2;
+    public static final int QUADRANT_LOWER_LEFT = 3;
+    public static final int QUADRANT_UPPER_LEFT = 4;
+    
+    private int getQuadrantofOpponent(Point2D.Double p) {
+        if(p == null) {
+            return 0;
+        }
+        if(getX() < p.getX() && getY() < p.getY()) {
+            return QUADRANT_UPPER_RIGHT;
+        }
+        else if(getX() < p.getX() && getY() > p.getY()) {
+            return QUADRANT_LOWER_RIGHT;
+        } 
+        else if(getX() > p.getX() && getY() > p.getY()) {
+            return QUADRANT_LOWER_LEFT;
+        } else {
+            return QUADRANT_UPPER_LEFT;
+        }
+    }
+    
+    private double getRadiantAngleToTurnGun(Point2D.Double p, Point2D.Double opponentP, boolean retBeta) {
+        double distGegenkathete = Math.abs(getY() - p.getY());
+        double distAnkathete = Math.abs(getX() - p.getX());
+        double distHypotenuse = Math.sqrt(distAnkathete*distAnkathete + distGegenkathete*distGegenkathete);
+        double sinusalpha = distGegenkathete / distHypotenuse;
+        double alpha = Math.asin(sinusalpha);
+        double sinbeta = distAnkathete / distHypotenuse;
+        double beta = Math.asin(sinbeta);
+        if(retBeta) return beta;
+        else return alpha;
+    }
+    
     private Point2D.Double getOpponentPostion() {
         Point2D.Double p = new Point2D.Double();
         double angle = Math.toRadians((getHeading() + opponentBearing) % 360);
@@ -220,7 +257,6 @@ public class ShootEmUp extends AdvancedRobot {
         p.setLocation(x, y);
         return p;
     }
-
     private static ScannedRobotEvent currentEvent = null;
 
     private static boolean isStillCurrentScan(ScannedRobotEvent event) {
@@ -241,15 +277,17 @@ public class ShootEmUp extends AdvancedRobot {
         this.opponentHeading = event.getHeading();
         this.tickRobotScanned = (int) this.getTime();
 
+        this.setTurnRadarRight(0);
+        this.setAhead(100);
         Point2D.Double opponentPosition = getOpponentPostion();
-        OpponentSetting oSetting = new OpponentSetting(event.getName(), opponentHeading, opponentVelocity, opponentPosition);
+        OpponentSetting oSetting = new OpponentSetting(event.getName(), opponentHeading, opponentVelocity, opponentPosition, getTime());
         ShootEmUp.opponentSettings.add(oSetting);
-        if(getOthers() == 1 && this.isOpponentWallRobot) {
+        if (getOthers() == 1 && this.isOpponentWallRobot) {
             return;
         }
         if (getOthers() == 1 && isWallRobot(event.getName())) {
             this.setAdjustGunForRobotTurn(true);
-            
+
             this.isOpponentWallRobot = true;
             setTurnRight(normalRelativeAngleDegrees(90 - getHeading()));
             waitFor(new TurnCompleteCondition(this));
@@ -260,7 +298,7 @@ public class ShootEmUp extends AdvancedRobot {
             setTurnRight(normalRelativeAngleDegrees(360 - getHeading()));
             waitFor(new TurnCompleteCondition(this));
             this.setAdjustGunForRobotTurn(false);
-            
+
             return;
         } else {
             this.isOpponentWallRobot = false;
@@ -280,12 +318,40 @@ public class ShootEmUp extends AdvancedRobot {
                 }
             }
 
-            this.setAdjustGunForRobotTurn(true);
-            this.setTurnGunRight(m1 * ShootEmUp.cGunRotate);
+            double predictDegree = 0;
+            long amountTurnsForPrediction = Math.round(opponentDistance / (20-3*f));
+            Point2D.Double predictedPos = ShootEmUp.opponentSettings.getPredictedPosition(event.getName(), amountTurnsForPrediction);
+            if (predictedPos != null) {
+                if (predictedPos.getY() > opponentPosition.getY()) {
+                    predictDegree = 0;
+                } else if (predictedPos.getY() < opponentPosition.getY()) {
+                    predictDegree = -0 ;
+                }
+            }
+            double alpha = getRadiantAngleToTurnGun(predictedPos, opponentPosition, false);
+            alpha = alpha * 180 / Math.PI;
+            int opponentQuadrant = getQuadrantofOpponent(predictedPos);
+            if( opponentQuadrant == QUADRANT_UPPER_RIGHT) {
+                alpha = 90 - alpha - getGunHeading();
+            }
+            if( opponentQuadrant == QUADRANT_LOWER_RIGHT) {
+                alpha = 90 + alpha - getGunHeading();
+            }
+            if( opponentQuadrant == QUADRANT_LOWER_LEFT) {
+                alpha = getRadiantAngleToTurnGun(predictedPos, opponentPosition, true);
+                alpha = alpha * 180 / Math.PI;
+                alpha = 180 + alpha - getGunHeading();
+            }
+            if( opponentQuadrant == QUADRANT_UPPER_LEFT) {
+                alpha = 270 + alpha - getGunHeading();
+            }
+            alpha = normalRelativeAngleDegrees(alpha);
+            this.setTurnGunRight(alpha);
+            out.println("Current:" + opponentPosition);
+            out.println("Predicted:" + predictedPos);
             execute();
-            this.setAdjustGunForRobotTurn(false);
-
-
+            waitFor(new GunTurnCompleteCondition(this));
+            
             if (getEnergy() > 5) {
                 Bullet b = this.setFireBullet(f);
                 set.bullet = b;
@@ -303,7 +369,6 @@ public class ShootEmUp extends AdvancedRobot {
 
     private boolean isWallRobot(String opponentName) {
         Vector<OpponentSetting> v = ShootEmUp.opponentSettings.getSettingsByName(opponentName);
-        out.println("isWallRobot:" + v.toArray().toString());
         int i = 0;
         int calcSeemsToBe = 0;
         if (v != null) {
@@ -315,11 +380,9 @@ public class ShootEmUp extends AdvancedRobot {
                 }
                 Point2D.Double p = opponentSetting.getOpponentPosition();
                 if (p.getX() < 36 || p.getX() > getBattleFieldWidth() - 36) {
-                    out.println(p);
                     calcSeemsToBe++;
                 } else if (p.getY() < 36 || p.getY() > getBattleFieldHeight() - 36) {
                     calcSeemsToBe++;
-                    out.println(p);
                 }
             }
         }
