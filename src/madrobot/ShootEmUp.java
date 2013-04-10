@@ -145,14 +145,14 @@ public class ShootEmUp extends AdvancedRobot {
         double leftXDistance = getX();
         double rightYDistance = this.battleFieldHeight - getY();
         double leftYDistance = getY();
-        if (Math.min(rightXDistance, leftXDistance) > 150) {
+        if (Math.min(rightXDistance, leftXDistance) > 200) {
             isFarAwayFromXBorder = true;
         } else {
             if (this.previousX < Math.min(rightXDistance, leftXDistance)) {
                 isFarAwayFromXBorder = true;
             }
         }
-        if (Math.min(rightYDistance, leftYDistance) > 150) {
+        if (Math.min(rightYDistance, leftYDistance) > 200) {
             isFarAwayFromYBorder = true;
         } else {
             if (this.previousY < Math.min(rightYDistance, leftYDistance)) {
@@ -186,6 +186,13 @@ public class ShootEmUp extends AdvancedRobot {
 
     @Override
     public void onHitRobot(HitRobotEvent event) {
+        if (!isOpponentWallRobot) {
+            double bearingBullet = event.getBearing();
+            this.setTurnGunRight(normalRelativeAngleDegrees(bearingBullet));
+            waitFor(new GunTurnCompleteCondition(this));
+            this.setFire(Rules.MAX_BULLET_POWER);
+            execute();
+        }
     }
 
     @Override
@@ -386,7 +393,7 @@ public class ShootEmUp extends AdvancedRobot {
                 }
             }
         }
-        if (calcSeemsToBe > 8) {
+        if (calcSeemsToBe > 20) {
             return true;
         } else {
             return false;
@@ -395,7 +402,7 @@ public class ShootEmUp extends AdvancedRobot {
 
     @Override
     public void onRoundEnded(RoundEndedEvent event) {
-        writeShootSettingsToFile();
+        //writeShootSettingsToFile();
     }
 
     @Override

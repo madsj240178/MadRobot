@@ -38,11 +38,16 @@ public class OpponentSettings {
     
     public Point2D.Double getPredictedPosition(String name, long amountRounds) {
         Vector<OpponentSetting> oV = this.getSettingsByName(name);
-        if(oV.size() < 2) return null;
+        if(oV.size() < 3) return null;
         Point2D.Double currentP = oV.get(oV.size()-1).getOpponentPosition();
         Point2D.Double previousP = oV.get(oV.size()-2).getOpponentPosition();
+        Point2D.Double previous2P = oV.get(oV.size()-3).getOpponentPosition();
         double diffX = currentP.getX() - previousP.getX();
+        double diffX2 = previousP.getX() - previous2P.getX();
         double diffY = currentP.getY() - previousP.getY();
+        double diffY2 = previousP.getY() - previous2P.getY();
+        diffX = (int) Math.round((diffX + diffX2) / 2);
+        diffY = (int) Math.round((diffY + diffY2) / 2);
         long diffRounds = oV.get(oV.size()-1).getTurnNum() - oV.get(oV.size()-2).getTurnNum(); 
         double ratioRounds = amountRounds / diffRounds;
         Point2D.Double nextP = new Point2D.Double(currentP.getX() + ratioRounds * diffX, currentP.getY() + ratioRounds * diffY);
